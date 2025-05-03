@@ -1,5 +1,5 @@
 # tahagoland
-study for goland.
+study for goland..
 
 
 
