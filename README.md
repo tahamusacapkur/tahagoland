@@ -20,6 +20,6 @@ func main() {
 }
 
 ```
-Markdown neymiş öğren.
-gorm.io bu siteye bak 
-orm ne demek?
+* Markdown neymiş öğren.
+* gorm.io bu siteye bak 
+* orm ne demek?
