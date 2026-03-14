@@ -11,6 +11,7 @@
 
 # Vektor Database Sample
 /chromem-sample-1/go.mod
+/chromem-sample-1/.env
 /chromem-sample-1/go.sum
 /chromem-sample-1/vendor
 /chromem-sample-1/chromem-sample-1
