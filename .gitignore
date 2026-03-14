@@ -1,5 +1,6 @@
 .idea
 .claude
+.env
 
 # Taha 1
 /taha1/vendor
