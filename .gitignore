@@ -1,6 +1,18 @@
 .idea
 .claude
 .env
+.DS_Store
+
+# MCP Example 1
+/MCP/MCP Example 1/vendor/
+/MCP/MCP Example 1/go.sum
+/MCP/MCP Example 1/SayHiMCP
+
+# MCP Example 2
+/MCP/MCP Example 2/vendor/
+/MCP/MCP Example 2/go.sum
+/MCP/MCP Example 2/GreeterMCP
+/MCP/MCP Example 2/.pid
 
 # Taha 1
 /taha1/vendor
