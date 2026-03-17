@@ -14,7 +14,7 @@ run: build
 
 # ngrok tünelini aç
 ngrok:
-	ngrok http --url=$(NGROK_DOMAIN) --host-header=localhost:$(PORT) $(PORT)
+	ngrok http --url=$(NGROK_DOMAIN) --traffic-policy-file=traffic-policy.yml $(PORT)
 
 # Derle, arka planda çalıştır, ngrok aç
 all: build
@@ -23,7 +23,7 @@ all: build
 	./$(APP_NAME) & echo $$! > .pid
 	@sleep 2
 	@echo "📡 ngrok başlatılıyor..."
-	ngrok http --url=$(NGROK_DOMAIN) --host-header=localhost:$(PORT) $(PORT)
+	ngrok http --url=$(NGROK_DOMAIN) --traffic-policy-file=traffic-policy.yml $(PORT)
 
 # Arka plandaki server'ı durdur
 stop:

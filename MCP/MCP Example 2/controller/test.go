@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strings"
+
+	"MCPExample2/service"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/xuri/excelize/v2"
@@ -50,6 +53,16 @@ type AuditScoreInput struct {
 	Month      string `json:"month" jsonschema:"required,the month name in Turkish, e.g. Ocak, Şubat, Mart"`
 }
 
+// --- Room Price MCP Input (with jsonschema tags for MCP tool) ---
+
+type RoomPriceInput struct {
+	CheckInDate  string `json:"check_in_date" jsonschema:"required,check-in date in YYYY-MM-DD format"`
+	CheckOutDate string `json:"check_out_date" jsonschema:"required,check-out date in YYYY-MM-DD format"`
+	Adults       int    `json:"adults" jsonschema:"required,number of adult guests"`
+	Children     int    `json:"children" jsonschema:"required,number of child guests (0 if none)"`
+	ChildAges    []int  `json:"child_ages" jsonschema:"ages of each child guest. Required if children > 0. One age per child e.g. [3, 7] for 2 children aged 3 and 7"`
+}
+
 func NewTestServer() *mcp.Server {
 	server := mcp.NewServer(
 		&mcp.Implementation{Name: "test", Version: "v1.0.0"},
@@ -71,6 +84,12 @@ func NewTestServer() *mcp.Server {
 		Name:        "audit-score",
 		Description: "Hijyen ve Gıda Güvenliği denetim puanlarını getirir. Departman adı ve ay bilgisi gereklidir. Örnek: 'IST-İÇ OPERASYON Ocak ayı puanları', 'AHL-ÜRETİM Mart denetim sonuçları'. Departmanı ve alt departmanlarının puanlarını döner.",
 	}, auditScore)
+	mcp.AddTool(server, &mcp.Tool{
+		Name: "room-price",
+		Description: `Otel oda fiyatlarını sorgular. Müşterinin giriş tarihi (check_in_date), çıkış tarihi (check_out_date), yetişkin sayısı (adults) ve çocuk sayısı (children) bilgilerini alır. Müsait odaları fiyatlarıyla birlikte listeler. Örnek: '1 Ekim - 3 Ekim arası 2 yetişkin için oda fiyatları', 'Yarın için uygun odalar'. Tarihler YYYY-MM-DD formatında olmalıdır.
+
+CRITICAL: Bu tool'un döndüğü çıktı önceden formatlanmış zengin Markdown içerir (görseller, tablolar, linkler, butonlar). Çıktıyı KESİNLİKLE olduğu gibi kullanıcıya göster. Özetleme, sadeleştirme, yeniden formatlama yapma. Markdown görsellerini (![...](...)) kaldırma. Linkleri ([...](...)) kaldırma. Tabloları değiştirme. Çıktıyı birebir kullanıcıya ilet, hiçbir şeyi atlama veya değiştirme.`,
+	}, roomPrice)
 	return server
 }
 
@@ -245,6 +264,130 @@ func auditScore(ctx context.Context, req *mcp.CallToolRequest, input AuditScoreI
 	}
 
 	return nil, GreetOutput{Greeting: sb.String()}, nil
+}
+
+func roomPrice(ctx context.Context, req *mcp.CallToolRequest, input RoomPriceInput) (*mcp.CallToolResult, GreetOutput, error) {
+	// Service'e delege et
+	svcInput := service.RoomPriceInput{
+		CheckInDate:  input.CheckInDate,
+		CheckOutDate: input.CheckOutDate,
+		Adults:       input.Adults,
+		Children:     input.Children,
+		ChildAges:    input.ChildAges,
+	}
+
+	priceResp, err := service.GetRoomPrice(ctx, svcInput)
+	if err != nil {
+		return nil, GreetOutput{Greeting: err.Error()}, nil
+	}
+
+	if len(priceResp.Rooms) == 0 {
+		return nil, GreetOutput{Greeting: "Seçtiğiniz tarihler için müsait oda bulunamadı. Farklı tarihler deneyebilirsiniz."}, nil
+	}
+
+	hotel := priceResp.Hotel
+	var contents []mcp.Content
+
+	// Helper: görseli indir ve ImageContent (base64) olarak ekle
+	addImage := func(imgURL string) {
+		if imgURL == "" || strings.HasSuffix(strings.ToLower(imgURL), ".mp4") {
+			return
+		}
+		imgResp, err := http.Get(imgURL)
+		if err != nil || imgResp.StatusCode != http.StatusOK {
+			return
+		}
+		defer imgResp.Body.Close()
+		data, err := io.ReadAll(imgResp.Body)
+		if err != nil || len(data) == 0 {
+			return
+		}
+		mimeType := "image/jpeg"
+		ext := strings.ToLower(filepath.Ext(imgURL))
+		switch ext {
+		case ".png":
+			mimeType = "image/png"
+		case ".webp":
+			mimeType = "image/webp"
+		case ".gif":
+			mimeType = "image/gif"
+		}
+		contents = append(contents, &mcp.ImageContent{Data: data, MIMEType: mimeType})
+	}
+
+	addText := func(text string) {
+		contents = append(contents, &mcp.TextContent{Text: text})
+	}
+
+	// ===== OTEL HEADER =====
+	addText(fmt.Sprintf("# %s\n\n%s\n\n", hotel.Name, hotel.Address))
+
+	// ===== REZERVASYON ÖZETİ =====
+	var sb strings.Builder
+	sb.WriteString("---\n\n## Arama Detayları\n\n")
+	sb.WriteString("| | |\n|---|---|\n")
+	sb.WriteString(fmt.Sprintf("| **Giriş Tarihi** | %s |\n", priceResp.CheckInDate))
+	sb.WriteString(fmt.Sprintf("| **Çıkış Tarihi** | %s |\n", priceResp.CheckOutDate))
+	sb.WriteString(fmt.Sprintf("| **Konaklama** | %d Gece |\n", priceResp.StayDays))
+	sb.WriteString(fmt.Sprintf("| **Misafirler** | %s |\n", priceResp.GuestCountSummary))
+	sb.WriteString(fmt.Sprintf("| **Pansiyon Tipi** | %s |\n", priceResp.BoardType))
+	sb.WriteString(fmt.Sprintf("| **Fiyat Geçerliliği** | %s |\n", priceResp.ValidityDate))
+	sb.WriteString("\n---\n\n## Müsait Odalar\n\n")
+	addText(sb.String())
+
+	// ===== ODALAR =====
+	for i, room := range priceResp.Rooms {
+		addText(fmt.Sprintf("### %d. %s\n", i+1, room.RoomType.Name))
+
+		// Sadece ana oda görseli
+		addImage(room.RoomType.ImageURL)
+
+		var roomSB strings.Builder
+		desc := service.StripHTMLTags(room.RoomType.Description)
+		if desc != "" {
+			roomSB.WriteString(fmt.Sprintf("\n> %s\n\n", desc))
+		}
+		roomSB.WriteString(fmt.Sprintf("**Kapasite:** %d yetişkin, maksimum %d kişi\n\n", room.RoomType.AdultCount, room.RoomType.RoomCapacity))
+
+		for j, offer := range room.BookingOffers {
+			contractDesc := service.ExtractLocaleText(offer.ContractDescription, "tr")
+			roomSB.WriteString(fmt.Sprintf("#### Teklif %d: %s\n\n", j+1, offer.ContractName))
+			if contractDesc != "" {
+				roomSB.WriteString(fmt.Sprintf("> %s\n\n", contractDesc))
+			}
+			roomSB.WriteString("| | |\n|---|---|\n")
+			roomSB.WriteString(fmt.Sprintf("| Gecelik Fiyat | **%.2f %s** |\n", offer.AvgNightPrice, room.CurrencyCode))
+			roomSB.WriteString(fmt.Sprintf("| %d Gece Toplam | %.2f %s |\n", offer.Night, offer.TotalAmount, room.CurrencyCode))
+			for _, t := range offer.Taxes {
+				roomSB.WriteString(fmt.Sprintf("| %s | %.2f %s |\n", t.Name, t.Amount, room.CurrencyCode))
+			}
+			roomSB.WriteString(fmt.Sprintf("| **Vergiler Dahil Toplam** | **%.2f %s** |\n", offer.NetAmount, room.CurrencyCode))
+			roomSB.WriteString("\n")
+			roomSB.WriteString(fmt.Sprintf("👉 **[SATIN AL — %s — %.2f %s](https://google.com)**\n\n", room.RoomType.Name, offer.NetAmount, room.CurrencyCode))
+		}
+		roomSB.WriteString("---\n\n")
+		addText(roomSB.String())
+	}
+
+	// ===== İLETİŞİM =====
+	var contactSB strings.Builder
+	contactSB.WriteString("## Otel Bilgileri & İletişim\n\n| | |\n|---|---|\n")
+	if hotel.CallCenter != "" {
+		contactSB.WriteString(fmt.Sprintf("| **Çağrı Merkezi** | %s |\n", hotel.CallCenter))
+	}
+	if hotel.SpReception != "" {
+		contactSB.WriteString(fmt.Sprintf("| **Resepsiyon** | %s |\n", hotel.SpReception))
+	}
+	if hotel.WhatsappNo != "" {
+		contactSB.WriteString(fmt.Sprintf("| **WhatsApp** | %s |\n", hotel.WhatsappNo))
+	}
+	if hotel.WebSiteURL != "" {
+		contactSB.WriteString(fmt.Sprintf("| **Web Sitesi** | %s |\n", hotel.WebSiteURL))
+	}
+	contactSB.WriteString("\n*Hayalinizdeki tatil sizi bekliyor! Hemen rezervasyonunuzu oluşturabilirsiniz.*\n")
+	addText(contactSB.String())
+
+	return &mcp.CallToolResult{Content: contents}, GreetOutput{}, nil
 }
 
 func getCellValue(rows [][]string, row, col int) string {

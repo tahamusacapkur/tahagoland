@@ -1,0 +1,344 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ICI Hotel API",
+    "description": "Otel oda müsaitlik ve fiyat sorgulama API'si. Relax Resort otelinin oda fiyatlarını, görsellerini ve detaylarını sorgulayabilirsiniz.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://mcp.stayos.ai",
+      "description": "Production server"
+    }
+  ],
+  "paths": {
+    "/api/v1/room-price": {
+      "post": {
+        "operationId": "getRoomPrice",
+        "summary": "Otel oda fiyatlarını sorgula",
+        "description": "Belirtilen tarihler ve misafir bilgilerine göre müsait odaları ve fiyatlarını getirir. Sonuçlarda oda görselleri, açıklamaları, fiyat teklifleri (iade edilebilir / iptal edilemez), vergiler ve otel iletişim bilgileri yer alır.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomPriceInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Başarılı sorgu sonucu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomPriceSuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Geçersiz istek",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Upstream API hatası",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "RoomPriceInput": {
+        "type": "object",
+        "required": [
+          "check_in_date",
+          "check_out_date",
+          "adults",
+          "children"
+        ],
+        "properties": {
+          "check_in_date": {
+            "type": "string",
+            "format": "date",
+            "description": "Giriş tarihi (YYYY-MM-DD)",
+            "example": "2025-10-01"
+          },
+          "check_out_date": {
+            "type": "string",
+            "format": "date",
+            "description": "Çıkış tarihi (YYYY-MM-DD)",
+            "example": "2025-10-03"
+          },
+          "adults": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Yetişkin sayısı",
+            "example": 2
+          },
+          "children": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Çocuk sayısı (0 ise child_ages gönderilmez)",
+            "example": 0
+          },
+          "child_ages": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 17
+            },
+            "description": "Her çocuğun yaşı. children > 0 ise zorunludur. Örnek: [3, 7]"
+          }
+        }
+      },
+      "RoomPriceSuccessResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "description": "Oda bulunamadığında bilgilendirme mesajı"
+          },
+          "data": {
+            "$ref": "#/components/schemas/RoomPriceData"
+          }
+        }
+      },
+      "RoomPriceData": {
+        "type": "object",
+        "properties": {
+          "check_in_date": {
+            "type": "string"
+          },
+          "check_out_date": {
+            "type": "string"
+          },
+          "stay_days": {
+            "type": "integer",
+            "description": "Konaklama gece sayısı"
+          },
+          "guest_count_summary": {
+            "type": "string",
+            "description": "Misafir özeti, ör: 2 Yetişkin"
+          },
+          "board_type": {
+            "type": "string",
+            "description": "Pansiyon tipi, ör: Bed and Breakfast (BB)"
+          },
+          "validity_date": {
+            "type": "string",
+            "description": "Fiyat geçerlilik tarihi"
+          },
+          "hotel": {
+            "$ref": "#/components/schemas/Hotel"
+          },
+          "rooms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Room"
+            }
+          }
+        }
+      },
+      "Hotel": {
+        "type": "object",
+        "description": "Otel bilgileri, iletişim, görseller ve sosyal medya linkleri",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "call_center": {
+            "type": "string"
+          },
+          "whatsapp_no": {
+            "type": "string"
+          },
+          "web_site_url": {
+            "type": "string"
+          },
+          "google_map_address": {
+            "type": "string"
+          },
+          "logo": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Otel logo URL'leri"
+          },
+          "slider_images": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Otel tanıtım görselleri"
+          },
+          "app_store_link": {
+            "type": "string"
+          },
+          "google_play_link": {
+            "type": "string"
+          },
+          "sm_instagram_url": {
+            "type": "string"
+          },
+          "sm_facebook_url": {
+            "type": "string"
+          },
+          "trip_advisor_link": {
+            "type": "string"
+          }
+        }
+      },
+      "Room": {
+        "type": "object",
+        "properties": {
+          "room_type": {
+            "$ref": "#/components/schemas/RoomType"
+          },
+          "booking_offers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookingOffer"
+            }
+          },
+          "currency_code": {
+            "type": "string",
+            "description": "Para birimi sembolü, ör: €"
+          }
+        }
+      },
+      "RoomType": {
+        "type": "object",
+        "description": "Oda tipi bilgileri",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string",
+            "description": "Oda adı"
+          },
+          "description": {
+            "type": "string",
+            "description": "Oda açıklaması (HTML içerebilir)"
+          },
+          "image_url": {
+            "type": "string",
+            "description": "Ana oda görseli URL"
+          },
+          "adult_count": {
+            "type": "integer",
+            "description": "Standart yetişkin kapasitesi"
+          },
+          "room_capacity": {
+            "type": "integer",
+            "description": "Maksimum kişi kapasitesi"
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "url": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Oda görselleri"
+          }
+        }
+      },
+      "BookingOffer": {
+        "type": "object",
+        "description": "Bir fiyat teklifi / kontrat",
+        "properties": {
+          "contract_name": {
+            "type": "string",
+            "description": "Tarife adı, ör: İade Edilebilir veya BBAR"
+          },
+          "contract_description": {
+            "type": "string",
+            "description": "İptal koşulları (JSON formatında çok dilli)"
+          },
+          "avg_night_price": {
+            "type": "number",
+            "description": "Gecelik ortalama fiyat"
+          },
+          "total_amount": {
+            "type": "number",
+            "description": "Toplam oda ücreti (vergisiz)"
+          },
+          "taxes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Tax"
+            }
+          },
+          "total_tax_amount": {
+            "type": "number"
+          },
+          "net_amount": {
+            "type": "number",
+            "description": "Vergiler dahil toplam tutar"
+          },
+          "night": {
+            "type": "integer",
+            "description": "Gece sayısı"
+          }
+        }
+      },
+      "Tax": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Vergi adı, ör: KDV (%10)"
+          },
+          "rate": {
+            "type": "number"
+          },
+          "amount": {
+            "type": "number"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

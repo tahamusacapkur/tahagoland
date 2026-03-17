@@ -23,6 +23,20 @@ func Setup() *gin.Engine {
 	register(r, "/hotel-content", controller.NewHotelContentServer(), opts)
 	register(r, "/upsell", controller.NewUpsellServer(), opts)
 
+	// REST API endpoint'leri (ChatGPT GPT Actions için)
+	api := r.Group("/api/v1")
+	{
+		api.POST("/room-price", controller.HandleRoomPrice)
+	}
+
+	// OpenAPI spec (ChatGPT Actions import için)
+	r.StaticFile("/openapi.json", "./openapi.json")
+
+	// Privacy policy (ChatGPT Actions gereksinimi)
+	r.GET("/privacy", func(c *gin.Context) {
+		c.String(200, "Privacy Policy for ICI Hotel API. Bu API otel oda fiyat sorgulama hizmeti sunar. Kişisel veri saklanmaz.")
+	})
+
 	// Sağlık kontrolü
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
@@ -31,13 +45,17 @@ func Setup() *gin.Engine {
 	// Ana sayfa
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(200, gin.H{
-			"message": "MCP Server çalışıyor",
-			"endpoints": []string{
+			"message": "MCP + REST API Server çalışıyor",
+			"mcp_endpoints": []string{
 				"/test",
 				"/reservation",
 				"/hotel-content",
 				"/upsell",
 			},
+			"rest_endpoints": []string{
+				"POST /api/v1/room-price",
+			},
+			"openapi": "/openapi.json",
 		})
 	})
 
