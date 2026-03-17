@@ -31,3 +31,8 @@ MCP/MCP Example 2/data
 /chromem-sample-1/chromem_data
 
 
+# Vapi Example 1
+/vapi/Vapi Example 1/vendor
+/vapi/Vapi Example 1/go.sum
+/vapi/Vapi Example 1/config.yaml
+/vapi/Vapi Example 1/bin/

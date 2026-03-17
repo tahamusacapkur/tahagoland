@@ -1,0 +1,24 @@
+# Vapi.ai Configuration
+# Bu dosyayı config.yaml olarak kopyalayın ve API key'inizi girin
+# cp config.yaml.example config.yaml
+
+vapi:
+  api_key: "YOUR_VAPI_API_KEY_HERE"
+  base_url: "https://api.vapi.ai"
+
+assistant:
+  name: "My First Vapi Assistant"
+  first_message: "Merhaba! Ben sizin yapay zeka asistanınızım. Size nasıl yardımcı olabilirim?"
+  first_message_mode: "assistant-speaks-first"
+  model:
+    provider: "openai"
+    model: "gpt-4o-mini"
+    temperature: 0.7
+    system_prompt: "Sen yardımcı bir Türkçe asistansın. Kısa ve öz cevaplar ver."
+  voice:
+    provider: "11labs"
+    voice_id: "21m00Tcm4TlvDq8ikWAM"
+  transcriber:
+    provider: "deepgram"
+    model: "nova-2"
+    language: "tr"
